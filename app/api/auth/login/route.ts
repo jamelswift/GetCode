@@ -86,34 +86,32 @@ export async function POST(request: Request) {
     const teacherLoginPassword = process.env.TEACHER_LOGIN_PASSWORD
     const teacherDisplayName = process.env.TEACHER_LOGIN_NAME?.trim() || 'ครูผู้สอน'
 
-    if (
-      expectedRole === 'teacher' &&
-      teacherLoginEmail &&
-      teacherLoginPassword &&
-      email === teacherLoginEmail &&
-      password === teacherLoginPassword
-    ) {
-      const hashedPassword = await bcrypt.hash(teacherLoginPassword, 10)
+    if (expectedRole === 'teacher') {
+      if (!teacherLoginEmail || !teacherLoginPassword) {
+        return NextResponse.json(
+          { message: 'ยังไม่ได้ตั้งค่า TEACHER_LOGIN_EMAIL/TEACHER_LOGIN_PASSWORD ในเซิร์ฟเวอร์' },
+          { status: 500 },
+        )
+      }
 
-      const teacherUser = await prisma.user.upsert({
-        where: { email: teacherLoginEmail },
-        create: {
-          email: teacherLoginEmail,
-          name: teacherDisplayName,
-          password: hashedPassword,
-          role: 'TEACHER',
-        },
-        update: {
-          name: teacherDisplayName,
-          password: hashedPassword,
-          role: 'TEACHER',
-        },
-      })
+      if (email === teacherLoginEmail && password === teacherLoginPassword) {
+        // Allow teacher login even if database is temporarily unavailable.
+        return NextResponse.json({
+          message: 'เข้าสู่ระบบสำเร็จ',
+          user: {
+            id: 'teacher-env',
+            name: teacherDisplayName,
+            email: teacherLoginEmail,
+            role: 'teacher',
+            createdAt: new Date().toISOString(),
+          },
+        })
+      }
 
-      return NextResponse.json({
-        message: 'เข้าสู่ระบบสำเร็จ',
-        user: toTeacherPayload(teacherUser),
-      })
+      return NextResponse.json(
+        { message: 'อีเมลหรือรหัสผ่านครูไม่ถูกต้อง' },
+        { status: 401 },
+      )
     }
 
     const user = await prisma.user.findUnique({

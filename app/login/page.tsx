@@ -45,7 +45,10 @@ export default function LoginPage() {
         }),
       })
 
-      const data = await response.json()
+      const contentType = response.headers.get('content-type') ?? ''
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : { message: 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง' }
 
       if (!response.ok) {
         setError(data.message ?? 'เข้าสู่ระบบไม่สำเร็จ')
