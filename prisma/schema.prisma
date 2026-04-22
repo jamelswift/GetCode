@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ตารางเก็บข้อมูลนักเรียน
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  name      String?
+  password  String    // เก็บพาสเวิร์ดที่เข้ารหัสแล้ว
+  role      String    @default("STUDENT") // STUDENT หรือ TEACHER
+  progress  Progress[]
+  createdAt DateTime  @default(now())
+}
+
+// ตารางเก็บความคืบหน้า/คะแนน
+model Progress {
+  id        Int      @id @default(autoincrement())
+  lessonId  String   // รหัสบทเรียน
+  score     Int?     // คะแนนที่ได้
+  completed Boolean  @default(false)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
