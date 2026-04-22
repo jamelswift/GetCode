@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://zentro.manoftheworld.xyz',
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'http://zentro.manoftheworld.xyz',
   ),
   title: 'CodeQuest - เรียนสร้างเว็บไซต์แบบสนุก',
   description: 'แพลตฟอร์ม E-Learning สำหรับเรียนรู้การสร้างเว็บไซต์ ผ่านการเรียนแบบด่านๆ 18 สัปดาห์ เพื่อสร้างนามบัตรดิจิทัลของคุณเอง',

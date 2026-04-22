@@ -164,6 +164,32 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'codequest-storage',
+      version: 2,
+      migrate: (persistedState: unknown) => {
+        const state = persistedState as Partial<AppState> | undefined
+
+        if (!state || typeof state !== 'object') {
+          return {
+            currentUser: null,
+            students: demoStudents,
+            isLoggedIn: false,
+          }
+        }
+
+        const currentUser =
+          state.currentUser && typeof state.currentUser === 'object'
+            ? (state.currentUser as User | Student)
+            : null
+        const students = Array.isArray(state.students) ? state.students : demoStudents
+        const isLoggedIn = Boolean(state.isLoggedIn && currentUser)
+
+        return {
+          ...state,
+          currentUser,
+          students,
+          isLoggedIn,
+        }
+      },
     }
   )
 )

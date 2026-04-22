@@ -14,6 +14,8 @@ import { LogOut, User, BookOpen, LayoutDashboard } from 'lucide-react'
 
 export function Navbar() {
   const { currentUser, isLoggedIn, logout } = useAppStore()
+  const displayName = (currentUser?.name ?? '').trim() || 'ผู้ใช้'
+  const initial = displayName.charAt(0)
 
   return (
     <motion.nav
@@ -61,9 +63,9 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-primary/30 hover:border-primary">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#22c55e] to-[#3b82f6] flex items-center justify-center text-white text-sm font-medium">
-                      {currentUser.name.charAt(0)}
+                      {initial}
                     </div>
-                    <span className="hidden sm:inline">{currentUser.name}</span>
+                    <span className="hidden sm:inline">{displayName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
