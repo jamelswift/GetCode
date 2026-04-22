@@ -69,6 +69,20 @@ export default function LessonDetailPage({ params }: PageProps) {
         submittedAt: new Date().toISOString(),
         submissionData: { answers },
       })
+
+      void fetch('/api/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: student.id,
+          lessonId,
+          score,
+          completed: true,
+        }),
+      })
+
       setShowCompletion(true)
     }
   }

@@ -49,6 +49,26 @@ interface AppState {
   getAllStudents: () => Student[]
 }
 
+const toStudentShape = (user: User | Student): Student => {
+  const maybeStudent = user as Student
+
+  return {
+    ...user,
+    role: 'student',
+    progress: Array.isArray(maybeStudent.progress) ? maybeStudent.progress : [],
+    totalScore:
+      typeof maybeStudent.totalScore === 'number'
+        ? maybeStudent.totalScore
+        : Array.isArray(maybeStudent.progress)
+          ? maybeStudent.progress.reduce((sum, p) => sum + p.score, 0)
+          : 0,
+    currentLesson:
+      typeof maybeStudent.currentLesson === 'number'
+        ? maybeStudent.currentLesson
+        : 1,
+  }
+}
+
 // Demo students data
 const demoStudents: Student[] = [
   {
@@ -102,48 +122,78 @@ export const useAppStore = create<AppState>()(
       students: demoStudents,
       isLoggedIn: false,
 
-      login: (user) => set({ currentUser: user, isLoggedIn: true }),
+      login: (user) =>
+        set((state) => {
+          if (user.role !== 'student') {
+            return { currentUser: user, isLoggedIn: true }
+          }
+
+          const normalizedStudent = toStudentShape(user)
+          const exists = state.students.some((student) => student.id === normalizedStudent.id)
+          const students = exists
+            ? state.students.map((student) =>
+                student.id === normalizedStudent.id ? normalizedStudent : student,
+              )
+            : [...state.students, normalizedStudent]
+
+          return {
+            currentUser: normalizedStudent,
+            students,
+            isLoggedIn: true,
+          }
+        }),
       
       logout: () => set({ currentUser: null, isLoggedIn: false }),
       
       updateProgress: (studentId, lessonId, progressUpdate) => {
         set((state) => {
-          const updatedStudents = state.students.map((student) => {
-            if (student.id === studentId) {
-              const existingProgressIndex = student.progress.findIndex(
-                (p) => p.lessonId === lessonId
+          const applyProgressUpdate = (student: Student): Student => {
+            const existingProgressIndex = student.progress.findIndex(
+              (p) => p.lessonId === lessonId,
+            )
+
+            let newProgress: LessonProgress[]
+            if (existingProgressIndex >= 0) {
+              newProgress = student.progress.map((p, index) =>
+                index === existingProgressIndex ? { ...p, ...progressUpdate } : p,
               )
-              
-              let newProgress: LessonProgress[]
-              if (existingProgressIndex >= 0) {
-                newProgress = student.progress.map((p, index) =>
-                  index === existingProgressIndex ? { ...p, ...progressUpdate } : p
-                )
-              } else {
-                newProgress = [
-                  ...student.progress,
-                  { lessonId, completed: false, score: 0, ...progressUpdate },
-                ]
-              }
-              
-              const totalScore = newProgress.reduce((sum, p) => sum + p.score, 0)
-              const currentLesson = Math.max(...newProgress.filter(p => p.completed).map(p => p.lessonId), 0) + 1
-              
-              return {
-                ...student,
-                progress: newProgress,
-                totalScore,
-                currentLesson: Math.min(currentLesson, 18),
-              }
+            } else {
+              newProgress = [
+                ...student.progress,
+                { lessonId, completed: false, score: 0, ...progressUpdate },
+              ]
             }
-            return student
+
+            const totalScore = newProgress.reduce((sum, p) => sum + p.score, 0)
+            const completedIds = newProgress.filter((p) => p.completed).map((p) => p.lessonId)
+            const maxCompleted = completedIds.length > 0 ? Math.max(...completedIds) : 0
+
+            return {
+              ...student,
+              progress: newProgress,
+              totalScore,
+              currentLesson: Math.min(maxCompleted + 1, 18),
+            }
+          }
+
+          let studentFound = false
+          const updatedStudents = state.students.map((student) => {
+            if (student.id !== studentId) return student
+            studentFound = true
+            return applyProgressUpdate(student)
           })
-          
-          // Also update currentUser if it's the same student
-          const updatedCurrentUser = state.currentUser?.id === studentId
-            ? updatedStudents.find(s => s.id === studentId) || state.currentUser
+
+          const currentIsTargetStudent =
+            state.currentUser?.id === studentId && state.currentUser.role === 'student'
+
+          if (!studentFound && currentIsTargetStudent && state.currentUser) {
+            updatedStudents.push(applyProgressUpdate(toStudentShape(state.currentUser)))
+          }
+
+          const updatedCurrentUser = currentIsTargetStudent
+            ? updatedStudents.find((s) => s.id === studentId) ?? state.currentUser
             : state.currentUser
-          
+
           return { students: updatedStudents, currentUser: updatedCurrentUser }
         })
       },
