@@ -200,6 +200,12 @@ export default function LoginPage() {
                 </motion.div>
               )}
 
+              {role === 'teacher' && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm text-foreground/90">
+                  บัญชีครูเริ่มต้น: Wipatsasicha0702@gmail.com / Wicha0702
+                </div>
+              )}
+
               <Button
                 type="submit"
                 disabled={isLoading}

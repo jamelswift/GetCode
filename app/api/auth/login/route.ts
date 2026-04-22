@@ -9,6 +9,21 @@ type LoginBody = {
   role?: 'student' | 'teacher'
 }
 
+function toTeacherPayload(user: {
+  id: number
+  name: string | null
+  email: string
+  createdAt: Date
+}) {
+  return {
+    id: String(user.id),
+    name: user.name ?? 'ครูผู้สอน',
+    email: user.email,
+    role: 'teacher' as const,
+    createdAt: user.createdAt.toISOString(),
+  }
+}
+
 function toStudentPayload(user: {
   id: number
   name: string | null
@@ -67,6 +82,40 @@ export async function POST(request: Request) {
       )
     }
 
+    const teacherLoginEmail = process.env.TEACHER_LOGIN_EMAIL?.trim().toLowerCase()
+    const teacherLoginPassword = process.env.TEACHER_LOGIN_PASSWORD
+    const teacherDisplayName = process.env.TEACHER_LOGIN_NAME?.trim() || 'ครูผู้สอน'
+
+    if (
+      expectedRole === 'teacher' &&
+      teacherLoginEmail &&
+      teacherLoginPassword &&
+      email === teacherLoginEmail &&
+      password === teacherLoginPassword
+    ) {
+      const hashedPassword = await bcrypt.hash(teacherLoginPassword, 10)
+
+      const teacherUser = await prisma.user.upsert({
+        where: { email: teacherLoginEmail },
+        create: {
+          email: teacherLoginEmail,
+          name: teacherDisplayName,
+          password: hashedPassword,
+          role: 'TEACHER',
+        },
+        update: {
+          name: teacherDisplayName,
+          password: hashedPassword,
+          role: 'TEACHER',
+        },
+      })
+
+      return NextResponse.json({
+        message: 'เข้าสู่ระบบสำเร็จ',
+        user: toTeacherPayload(teacherUser),
+      })
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -100,13 +149,7 @@ export async function POST(request: Request) {
     if (normalizedRole === 'teacher') {
       return NextResponse.json({
         message: 'เข้าสู่ระบบสำเร็จ',
-        user: {
-          id: String(user.id),
-          name: user.name ?? '',
-          email: user.email,
-          role: 'teacher',
-          createdAt: user.createdAt.toISOString(),
-        },
+        user: toTeacherPayload(user),
       })
     }
 
