@@ -82,18 +82,14 @@ export async function POST(request: Request) {
       )
     }
 
-    const teacherLoginEmail = process.env.TEACHER_LOGIN_EMAIL?.trim().toLowerCase()
-    const teacherLoginPassword = process.env.TEACHER_LOGIN_PASSWORD
+    const teacherLoginEmail =
+      process.env.TEACHER_LOGIN_EMAIL?.trim().toLowerCase() ??
+      'wipatsasicha0702@gmail.com'
+    const teacherLoginPassword =
+      process.env.TEACHER_LOGIN_PASSWORD ?? 'Wicha0702'
     const teacherDisplayName = process.env.TEACHER_LOGIN_NAME?.trim() || 'ครูผู้สอน'
 
     if (expectedRole === 'teacher') {
-      if (!teacherLoginEmail || !teacherLoginPassword) {
-        return NextResponse.json(
-          { message: 'ยังไม่ได้ตั้งค่า TEACHER_LOGIN_EMAIL/TEACHER_LOGIN_PASSWORD ในเซิร์ฟเวอร์' },
-          { status: 500 },
-        )
-      }
-
       if (email === teacherLoginEmail && password === teacherLoginPassword) {
         // Allow teacher login even if database is temporarily unavailable.
         return NextResponse.json({

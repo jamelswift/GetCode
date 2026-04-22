@@ -62,7 +62,10 @@ export default function RegisterPage() {
         }),
       })
 
-      const data = await response.json()
+      const contentType = response.headers.get('content-type') ?? ''
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : { message: 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง' }
 
       if (!response.ok) {
         setError(data.message ?? 'ลงทะเบียนไม่สำเร็จ')
