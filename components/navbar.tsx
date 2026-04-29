@@ -36,7 +36,7 @@ export function Navbar() {
                 C
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-[#22c55e] to-[#3b82f6] bg-clip-text text-transparent">
-                CodeQuest
+                Getcode
               </span>
             </motion.div>
           </Link>

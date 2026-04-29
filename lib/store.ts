@@ -213,7 +213,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'codequest-storage',
+      name: 'getcode-storage',
       version: 2,
       migrate: (persistedState: unknown) => {
         const state = persistedState as Partial<AppState> | undefined

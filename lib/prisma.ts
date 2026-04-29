@@ -3,20 +3,36 @@ import { PrismaPg } from '@prisma/adapter-pg'
 
 const connectionString = process.env.DATABASE_URL
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL is required to initialize Prisma Client')
-}
-
-const adapter = new PrismaPg(connectionString)
-
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter,
-  })
+let prismaClient: PrismaClient
+
+if (connectionString) {
+  // Use PostgreSQL adapter if DATABASE_URL is set
+  const adapter = new PrismaPg(connectionString)
+  prismaClient =
+    globalForPrisma.prisma ??
+    new PrismaClient({
+      adapter,
+    })
+} else {
+  // Fallback to SQLite for development without DATABASE_URL
+  console.warn(
+    'DATABASE_URL not set. Using SQLite fallback for development. Set DATABASE_URL to use PostgreSQL.',
+  )
+  prismaClient =
+    globalForPrisma.prisma ??
+    new PrismaClient({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL ?? 'file:./dev.db',
+        },
+      },
+    })
+}
+
+export const prisma = prismaClient
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

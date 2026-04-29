@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? 'http://zentro.manoftheworld.xyz',
   ),
-  title: 'CodeQuest - เรียนสร้างเว็บไซต์แบบสนุก',
-  description: 'แพลตฟอร์ม E-Learning สำหรับเรียนรู้การสร้างเว็บไซต์ ผ่านการเรียนแบบด่านๆ 18 สัปดาห์ เพื่อสร้างนามบัตรดิจิทัลของคุณเอง',
+  title: 'Getcode - สื่อการเรียนรู้สำหรับรายวิชา การสร้างเว็บไซต์',
+  description: 'แพลตฟอร์ม E-Learning สำหรับเรียนรู้การสร้างเว็บไซต์ ผ่านการเรียนแบบด่านๆ 18 สัปดาห์ เพื่อสร้างนามบัตรดิจิทัลของนักเรียนเอง',
   generator: 'v0.app',
   icons: {
     icon: [

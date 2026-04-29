@@ -350,7 +350,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-border relative z-10">
         <div className="max-w-6xl mx-auto text-center text-muted-foreground text-sm">
-          <p>© 2024 CodeQuest - E-Learning Platform</p>
+          <p>© 2024 Getcode - E-Learning Platform</p>
           <p className="mt-1">รายวิชา: การสร้างเว็บไซต์ (21901-2002) | ปวช.1</p>
         </div>
       </footer>
