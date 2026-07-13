@@ -45,6 +45,7 @@ interface AppState {
   logout: () => void
   updateProgress: (studentId: string, lessonId: number, progress: Partial<LessonProgress>) => void
   addStudent: (student: Student) => void
+  setStudents: (students: Student[]) => void
   getStudentById: (id: string) => Student | undefined
   getAllStudents: () => Student[]
 }
@@ -70,7 +71,7 @@ const toStudentShape = (user: User | Student): Student => {
 }
 
 // Demo students data
-const demoStudents: Student[] = [
+export const demoStudents: Student[] = [
   {
     id: 'student-1',
     name: 'สมชาย ใจดี',
@@ -202,6 +203,10 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           students: [...state.students, student],
         }))
+      },
+
+      setStudents: (students) => {
+        set({ students })
       },
       
       getStudentById: (id) => {

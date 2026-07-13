@@ -1,0 +1,4 @@
+ALTER TABLE "Progress"
+ADD COLUMN     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "teacherFeedback" TEXT,
+ADD COLUMN     "submissionData" JSONB;

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 
 import { prisma } from '@/lib/prisma'
 
@@ -7,6 +8,7 @@ type ProgressBody = {
   lessonId?: string | number
   score?: number
   completed?: boolean
+  submissionData?: unknown
 }
 
 export async function POST(request: Request) {
@@ -34,6 +36,10 @@ export async function POST(request: Request) {
 
     const score = typeof body.score === 'number' ? body.score : null
     const completed = Boolean(body.completed)
+    const submissionData =
+      body.submissionData === null || body.submissionData === undefined
+        ? Prisma.DbNull
+        : (body.submissionData as Prisma.InputJsonValue)
 
     const progress = await prisma.progress.upsert({
       where: {
@@ -45,12 +51,16 @@ export async function POST(request: Request) {
       update: {
         score,
         completed,
+        submittedAt: new Date(),
+        submissionData,
       },
       create: {
         userId,
         lessonId,
         score,
         completed,
+        submittedAt: new Date(),
+        submissionData,
       },
     })
 
@@ -61,6 +71,9 @@ export async function POST(request: Request) {
         lessonId: progress.lessonId,
         score: progress.score,
         completed: progress.completed,
+        submittedAt: progress.submittedAt.toISOString(),
+        teacherFeedback: progress.teacherFeedback,
+        submissionData: progress.submissionData,
         updatedAt: progress.updatedAt.toISOString(),
       },
     })

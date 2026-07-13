@@ -80,6 +80,7 @@ export default function LessonDetailPage({ params }: PageProps) {
           lessonId,
           score,
           completed: true,
+          submissionData: { answers },
         }),
       })
 

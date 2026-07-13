@@ -57,6 +57,7 @@ export default function RegisterPage() {
         },
         body: JSON.stringify({
           name: formData.name,
+          studentId: formData.studentId,
           email: formData.email,
           password: formData.password,
         }),

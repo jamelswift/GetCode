@@ -30,7 +30,7 @@ if (connectionString) {
           url: process.env.DATABASE_URL ?? 'file:./dev.db',
         },
       },
-    })
+    } as any)
 }
 
 export const prisma = prismaClient

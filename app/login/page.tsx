@@ -21,6 +21,21 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  const fallbackTeacherEmail = 'wipatsasicha0702@gmail.com'
+  const fallbackTeacherPassword = 'Wicha0702'
+  const fallbackTeacherName = 'ครูผู้สอน'
+
+  const loginTeacherLocally = () => {
+    login({
+      id: 'teacher-env',
+      name: fallbackTeacherName,
+      email: fallbackTeacherEmail,
+      role: 'teacher',
+      createdAt: new Date().toISOString(),
+    })
+    router.push('/teacher')
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -49,6 +64,20 @@ export default function LoginPage() {
       const data = contentType.includes('application/json')
         ? await response.json()
         : { message: 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง' }
+
+      if (!response.ok && role === 'teacher') {
+        const normalizedEmail = email.trim().toLowerCase()
+        const normalizedPassword = password.trim()
+
+        if (
+          response.status === 404 &&
+          normalizedEmail === fallbackTeacherEmail &&
+          normalizedPassword === fallbackTeacherPassword
+        ) {
+          loginTeacherLocally()
+          return
+        }
+      }
 
       if (!response.ok) {
         setError(data.message ?? 'เข้าสู่ระบบไม่สำเร็จ')

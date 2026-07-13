@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 
 type RegisterBody = {
   name?: string
+  studentId?: string
   email?: string
   password?: string
 }
@@ -13,10 +14,11 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RegisterBody
     const name = body.name?.trim() ?? ''
+    const studentId = body.studentId?.trim() ?? ''
     const email = body.email?.trim().toLowerCase() ?? ''
     const password = body.password ?? ''
 
-    if (!name || !email || !password) {
+    if (!name || !studentId || !email || !password) {
       return NextResponse.json(
         { message: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
         { status: 400 },
@@ -43,6 +45,7 @@ export async function POST(request: Request) {
     const user = await prisma.user.create({
       data: {
         name,
+        studentId,
         email,
         password: hashedPassword,
         role: 'STUDENT',
@@ -56,7 +59,7 @@ export async function POST(request: Request) {
         name: user.name ?? '',
         email: user.email,
         role: 'student',
-        studentId: String(user.id),
+        studentId: user.studentId ?? studentId,
         createdAt: user.createdAt.toISOString(),
         progress: [],
         totalScore: 0,

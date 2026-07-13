@@ -15,6 +15,7 @@ datasource db {
 model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
+  studentId String?   @unique
   name      String?
   password  String    // เก็บพาสเวิร์ดที่เข้ารหัสแล้ว
   role      String    @default("STUDENT") // STUDENT หรือ TEACHER
@@ -28,6 +29,9 @@ model Progress {
   lessonId  String   // รหัสบทเรียน
   score     Int?     // คะแนนที่ได้
   completed Boolean  @default(false)
+  submittedAt DateTime @default(now())
+  teacherFeedback String?
+  submissionData Json?
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   updatedAt DateTime @updatedAt
