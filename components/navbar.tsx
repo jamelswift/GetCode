@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,9 +33,13 @@ export function Navbar() {
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-[#22c55e] to-[#3b82f6] rounded-xl flex items-center justify-center text-xl font-bold text-white">
-                C
-              </div>
+              <Image
+              src="/logo.png"
+              alt="GetCode Logo"
+              width={100}
+              height={120}
+              className="rounded-xl"
+              />
               <span className="text-xl font-bold bg-gradient-to-r from-[#22c55e] to-[#3b82f6] bg-clip-text text-transparent">
                 Getcode
               </span>

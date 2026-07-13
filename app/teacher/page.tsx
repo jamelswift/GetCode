@@ -197,10 +197,6 @@ export default function TeacherPage() {
     void loadStudents()
   }, [isLoggedIn, currentUser, router])
 
-  if (!currentUser || currentUser.role !== 'teacher') {
-    return null
-  }
-
   const handleExport = () => {
     window.location.href = '/api/export'
   }
@@ -421,6 +417,10 @@ export default function TeacherPage() {
         <div className="text-foreground/80">ความถูกต้อง {formatAccuracy(row.accuracy)}</div>
       </div>
     )
+  }
+
+  if (!currentUser || currentUser.role !== 'teacher') {
+    return null
   }
 
   const uploadWithAction = async (
