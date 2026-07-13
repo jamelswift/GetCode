@@ -1,22 +1,36 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  Download,
-  Upload,
   AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  FileSpreadsheet,
-  Eye,
-  Users,
+  BarChart3,
+  BadgeCheck,
   BookOpen,
-  FileCode2,
   CalendarClock,
+  CheckCircle2,
   ChevronRight,
+  Download,
+  Eye,
+  FileCode2,
+  FileSpreadsheet,
+  Lightbulb,
+  Loader2,
+  TrendingDown,
+  Upload,
+  Users,
 } from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/navbar'
@@ -59,6 +73,93 @@ type ImportResponse = {
   }
 }
 
+type QuestionAnalytics = {
+  quizId: string
+  question: string
+  type: string
+  correctCount: number
+  incorrectCount: number
+  totalCount: number
+  accuracy: number
+}
+
+type WeekAnalytics = {
+  lessonId: number
+  week: number
+  title: string
+  submissions: number
+  correctCount: number
+  incorrectCount: number
+  accuracy: number
+  assessment: string
+  recommendation: string
+  questions: QuestionAnalytics[]
+}
+
+type WeeklyChartRow = {
+  week: number
+  label: string
+  correctCount: number
+  incorrectCount: number
+  accuracy: number
+  submissions: number
+}
+
+const questionTypeLabel: Record<string, string> = {
+  'multiple-choice': 'เลือกตอบ',
+  code: 'โค้ด',
+  'fill-blank': 'เติมคำ',
+  'image-upload': 'อัปโหลดรูป',
+}
+
+const getQuestionCorrectness = (
+  quiz: { type: string; correctAnswer?: string | number; expectedOutput?: string },
+  answer: string,
+) => {
+  if (quiz.type === 'multiple-choice' && quiz.correctAnswer !== undefined) {
+    return answer === String(quiz.correctAnswer)
+  }
+
+  if (quiz.type === 'code' && quiz.expectedOutput) {
+    return answer.toLowerCase().includes(quiz.expectedOutput.toLowerCase())
+  }
+
+  if (quiz.type === 'fill-blank' || quiz.type === 'image-upload') {
+    return true
+  }
+
+  return false
+}
+
+const formatAccuracy = (value: number) => `${value.toFixed(0)}%`
+
+const getWeekAssessment = (accuracy: number, submissions: number) => {
+  if (submissions === 0) {
+    return 'ยังไม่มีข้อมูลการส่งงาน'
+  }
+
+  if (accuracy >= 85) {
+    return 'ทำได้ดีมาก'
+  }
+
+  if (accuracy >= 70) {
+    return 'อยู่ในเกณฑ์ดี'
+  }
+
+  if (accuracy >= 50) {
+    return 'ควรทบทวน'
+  }
+
+  return 'ต้องแก้ไขเร่งด่วน'
+}
+
+const getAssessmentColor = (accuracy: number) => {
+  if (accuracy >= 85) return '#22c55e'
+  if (accuracy >= 70) return '#3b82f6'
+  if (accuracy >= 50) return '#f97316'
+  return '#ef4444'
+}
+
 export default function TeacherPage() {
   const router = useRouter()
   const { currentUser, isLoggedIn, setStudents } = useAppStore()
@@ -71,6 +172,7 @@ export default function TeacherPage() {
   const [previewResult, setPreviewResult] = useState<ImportResponse | null>(null)
   const [commitResult, setCommitResult] = useState<ImportResponse | null>(null)
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isLoggedIn || currentUser?.role !== 'teacher') {
@@ -139,6 +241,187 @@ export default function TeacherPage() {
     (total, student) => total + student.submittedLessons.length,
     0,
   )
+
+  const weeklyAnalytics = useMemo(() => {
+    const classSize = students.length
+
+    return lessons
+      .map<WeekAnalytics>((lesson) => {
+        const lessonSubmissions = students
+          .map((student) =>
+            student.progress.find(
+              (progress) => progress.lessonId === lesson.id && Boolean(progress.submissionData),
+            ),
+          )
+          .filter((progress): progress is NonNullable<typeof progress> => Boolean(progress))
+
+        const questions = lesson.quizzes.map<QuestionAnalytics>((quiz) => {
+          let correctCount = 0
+          let incorrectCount = 0
+
+          lessonSubmissions.forEach((progress) => {
+            const answers = progress.submissionData?.answers ?? {}
+            const rawAnswer = answers[quiz.id]
+
+            if (rawAnswer === undefined || rawAnswer === null || rawAnswer === '') {
+              incorrectCount += 1
+              return
+            }
+
+            if (getQuestionCorrectness(quiz, String(rawAnswer))) {
+              correctCount += 1
+            } else {
+              incorrectCount += 1
+            }
+          })
+
+          const totalCount = correctCount + incorrectCount
+
+          return {
+            quizId: quiz.id,
+            question: quiz.question,
+            type: quiz.type,
+            correctCount,
+            incorrectCount,
+            totalCount,
+            accuracy: totalCount > 0 ? (correctCount / totalCount) * 100 : 0,
+          }
+        })
+
+        const correctCount = questions.reduce((sum, question) => sum + question.correctCount, 0)
+        const incorrectCount = questions.reduce((sum, question) => sum + question.incorrectCount, 0)
+        const totalCount = correctCount + incorrectCount
+        const accuracy = totalCount > 0 ? (correctCount / totalCount) * 100 : 0
+        const weakestQuestion = [...questions].sort((left, right) => left.accuracy - right.accuracy)[0]
+
+        let recommendation = 'ยังไม่มีข้อมูลให้สรุป'
+
+        if (lessonSubmissions.length === 0) {
+          recommendation = 'ยังไม่มีนักเรียนส่งงานในสัปดาห์นี้ ควรแจ้งติดตามหรือนัดสอนเสริม'
+        } else if (accuracy >= 85) {
+          recommendation = 'ผลลัพธ์ดีมาก ควรต่อยอดด้วยโจทย์ยากขึ้นหรือให้ฝึกอธิบายเหตุผลของคำตอบ'
+        } else if (accuracy >= 70) {
+          recommendation = weakestQuestion
+            ? `ทบทวน ${weakestQuestion.question} และให้ทำแบบฝึกหัดซ้ำอีก 1 รอบ`
+            : 'ทบทวนแนวคิดหลักของสัปดาห์นี้อีกครั้ง'
+        } else {
+          const weakQuestions = questions
+            .filter((question) => question.totalCount > 0)
+            .sort((left, right) => left.accuracy - right.accuracy)
+            .slice(0, 2)
+            .map((question) => question.question)
+
+          recommendation = weakQuestions.length > 0
+            ? `ควรสอนซ้ำเรื่อง ${weakQuestions.join(' และ ')} พร้อมยกตัวอย่างทีละขั้น`
+            : 'ควรสอนทบทวนและให้ฝึกทำโจทย์เพิ่มเติม'
+        }
+
+        return {
+          lessonId: lesson.id,
+          week: lesson.week,
+          title: lesson.title,
+          submissions: lessonSubmissions.length,
+          correctCount,
+          incorrectCount,
+          accuracy,
+          assessment: getWeekAssessment(accuracy, lessonSubmissions.length),
+          recommendation,
+          questions,
+        }
+      })
+      .sort((left, right) => left.week - right.week)
+  }, [students])
+
+  const weeklyChartData: WeeklyChartRow[] = weeklyAnalytics.map((item) => ({
+    week: item.week,
+    label: `สัปดาห์ ${item.week}`,
+    correctCount: item.correctCount,
+    incorrectCount: item.incorrectCount,
+    accuracy: item.accuracy,
+    submissions: item.submissions,
+  }))
+
+  const answeredQuestions = weeklyAnalytics.reduce(
+    (sum, week) => sum + week.correctCount + week.incorrectCount,
+    0,
+  )
+  const totalCorrectAnswers = weeklyAnalytics.reduce((sum, week) => sum + week.correctCount, 0)
+  const overallAccuracy = answeredQuestions > 0 ? (totalCorrectAnswers / answeredQuestions) * 100 : 0
+  const weakWeeks = weeklyAnalytics.filter((week) => week.submissions > 0 && week.accuracy < 70)
+  const topWeakQuestions = weeklyAnalytics
+    .flatMap((week) =>
+      week.questions.map((question) => ({
+        week: week.week,
+        lessonTitle: week.title,
+        ...question,
+      })),
+    )
+    .filter((question) => question.totalCount > 0)
+    .sort((left, right) => left.accuracy - right.accuracy)
+    .slice(0, 5)
+
+  const selectedWeek =
+    weeklyAnalytics.find((week) => week.week === selectedWeekId) ??
+    weeklyAnalytics.find((week) => week.submissions > 0) ??
+    weeklyAnalytics[0] ??
+    null
+
+  const selectedWeekQuestionChart = selectedWeek?.questions.map((question) => ({
+    quizId: question.quizId,
+    label: question.question,
+    correctCount: question.correctCount,
+    incorrectCount: question.incorrectCount,
+    totalCount: question.totalCount,
+    accuracy: question.accuracy,
+    type: question.type,
+  })) ?? []
+
+  const chartTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean
+    payload?: Array<{ payload?: WeeklyChartRow }>
+  }) => {
+    if (!active || !payload?.length) return null
+
+    const row = payload[0]?.payload
+
+    if (!row) return null
+
+    return (
+      <div className="rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-xl">
+        <div className="font-medium text-foreground">{row.label}</div>
+        <div className="text-muted-foreground">ส่งงานแล้ว {row.submissions} คน</div>
+        <div className="text-[#22c55e]">ถูก {row.correctCount}</div>
+        <div className="text-destructive">ผิด {row.incorrectCount}</div>
+        <div className="text-foreground/80">ความถูกต้อง {formatAccuracy(row.accuracy)}</div>
+      </div>
+    )
+  }
+
+  const selectedWeekTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean
+    payload?: Array<{ payload?: { label: string; correctCount: number; incorrectCount: number; accuracy: number } }>
+  }) => {
+    if (!active || !payload?.length) return null
+
+    const row = payload[0]?.payload
+
+    if (!row) return null
+
+    return (
+      <div className="rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-xl">
+        <div className="font-medium text-foreground">{row.label}</div>
+        <div className="text-[#22c55e]">ถูก {row.correctCount}</div>
+        <div className="text-destructive">ผิด {row.incorrectCount}</div>
+        <div className="text-foreground/80">ความถูกต้อง {formatAccuracy(row.accuracy)}</div>
+      </div>
+    )
+  }
 
   const uploadWithAction = async (
     action: 'preview' | 'commit',
@@ -571,6 +854,316 @@ export default function TeacherPage() {
                 </div>
               </div>
             )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.17 }}
+            className="bg-card rounded-3xl p-6 border border-border space-y-6"
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  4) สถิติการทำแบบฝึกหัดรายสัปดาห์
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  กราฟนี้สรุปคำตอบถูก/ผิดของแต่ละสัปดาห์ พร้อมให้ข้อเสนอแนะสำหรับการสอนซ้ำ
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm md:min-w-[360px]">
+                <div className="rounded-2xl border border-border bg-muted/40 p-3">
+                  <div className="text-muted-foreground">ความถูกต้องเฉลี่ย</div>
+                  <div className="text-xl font-bold text-foreground">{formatAccuracy(overallAccuracy)}</div>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/40 p-3">
+                  <div className="text-muted-foreground">สัปดาห์ที่ต้องทบทวน</div>
+                  <div className="text-xl font-bold text-foreground">{weakWeeks.length}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+              <div className="rounded-3xl border border-border bg-muted/20 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-foreground">กราฟถูก/ผิดรายสัปดาห์</div>
+                    <div className="text-xs text-muted-foreground">สีเขียวคือคำตอบถูก สีแดงคือคำตอบผิด</div>
+                  </div>
+                </div>
+
+                {weeklyChartData.length === 0 || weeklyChartData.every((row) => row.correctCount + row.incorrectCount === 0) ? (
+                  <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-border bg-background text-sm text-muted-foreground">
+                    ยังไม่มีข้อมูลคำตอบสำหรับสร้างกราฟ
+                  </div>
+                ) : (
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={weeklyChartData} barCategoryGap={12}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} />
+                        <Tooltip content={chartTooltip} />
+                        <Bar dataKey="correctCount" name="ถูก" stackId="score" radius={[8, 8, 0, 0]}>
+                          {weeklyChartData.map((entry) => (
+                            <Cell key={`correct-${entry.week}`} fill="#22c55e" />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="incorrectCount" name="ผิด" stackId="score" radius={[8, 8, 0, 0]}>
+                          {weeklyChartData.map((entry) => (
+                            <Cell key={`incorrect-${entry.week}`} fill="#ef4444" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 rounded-3xl border border-border bg-muted/20 p-4">
+                <div>
+                  <div className="font-medium text-foreground flex items-center gap-2">
+                    <BadgeCheck className="w-4 h-4 text-[#22c55e]" />
+                    สรุปการประเมิน
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    ระบบจะประเมินจากความถูกต้องของคำตอบที่ส่งเข้ามาในแต่ละสัปดาห์
+                  </div>
+                </div>
+
+                {weeklyAnalytics.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                    ยังไม่มีข้อมูลสำหรับประเมินผล
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {weeklyAnalytics.map((week) => {
+                      const isSelected = selectedWeek?.week === week.week
+
+                      return (
+                      <button
+                        key={week.week}
+                        type="button"
+                        onClick={() => setSelectedWeekId(week.week)}
+                        className={`w-full rounded-2xl border p-4 space-y-3 text-left transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 shadow-md'
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-muted/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-medium text-foreground">สัปดาห์ {week.week}</div>
+                            <div className="text-xs text-muted-foreground">{week.title}</div>
+                          </div>
+                          <span
+                            className="rounded-full px-3 py-1 text-xs font-medium"
+                            style={{
+                              backgroundColor: `${getAssessmentColor(week.accuracy)}20`,
+                              color: getAssessmentColor(week.accuracy),
+                            }}
+                          >
+                            {week.assessment}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>ส่งงาน {week.submissions} คน</span>
+                          <span>ความถูกต้อง {formatAccuracy(week.accuracy)}</span>
+                        </div>
+
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#3b82f6]"
+                            style={{ width: `${Math.min(week.accuracy, 100)}%` }}
+                          />
+                        </div>
+
+                        <div className="text-sm text-foreground/90">{week.recommendation}</div>
+                      </button>
+                      )
+                    })}
+
+                    <div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                      มีสถิติทั้งหมด {weeklyAnalytics.length} สัปดาห์ เลือกสัปดาห์ใดก็ได้เพื่อดูกราฟรายข้อและข้อเสนอแนะเพิ่มเติม
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {selectedWeek && (
+              <div className="rounded-3xl border border-border bg-muted/20 p-4 space-y-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="font-medium text-foreground flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-primary" />
+                      รายละเอียดสัปดาห์ {selectedWeek.week}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      แตะที่สัปดาห์อื่นเพื่อเปลี่ยนข้อมูลด้านล่างได้ทันที
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    ส่งงาน {selectedWeek.submissions} คน · ความถูกต้อง {formatAccuracy(selectedWeek.accuracy)}
+                  </div>
+                </div>
+
+                {selectedWeekQuestionChart.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+                    ไม่มีข้อมูลคำตอบรายข้อสำหรับสัปดาห์นี้
+                  </div>
+                ) : (
+                  <div className="h-[280px] w-full rounded-2xl border border-border bg-background p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={selectedWeekQuestionChart} layout="vertical" margin={{ left: 12, right: 12 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} />
+                        <YAxis
+                          type="category"
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          width={120}
+                          fontSize={11}
+                        />
+                        <Tooltip content={selectedWeekTooltip} />
+                        <Bar dataKey="correctCount" stackId="question" name="ถูก" radius={[0, 8, 8, 0]}>
+                          {selectedWeekQuestionChart.map((entry) => (
+                            <Cell key={`question-correct-${entry.quizId}`} fill="#22c55e" />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="incorrectCount" stackId="question" name="ผิด" radius={[0, 8, 8, 0]}>
+                          {selectedWeekQuestionChart.map((entry) => (
+                            <Cell key={`question-incorrect-${entry.quizId}`} fill="#ef4444" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {selectedWeek.questions.map((question) => (
+                    <div key={`selected-${question.quizId}`} className="rounded-2xl border border-border bg-background p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium text-foreground">{question.question}</div>
+                        <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-foreground">
+                          {questionTypeLabel[question.type] ?? question.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>ถูก {question.correctCount}</span>
+                        <span>ผิด {question.incorrectCount}</span>
+                        <span>{formatAccuracy(question.accuracy)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-[#22c55e]"
+                          style={{ width: `${Math.min(question.accuracy, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <TrendingDown className="w-4 h-4 text-[#f97316]" />
+                ข้อที่นักเรียนพลาดบ่อยที่สุด
+              </div>
+
+              {topWeakQuestions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  ยังไม่มีข้อมูลคำถามที่ใช้นับสถิติได้
+                </div>
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {topWeakQuestions.map((question) => (
+                    <div key={`${question.week}-${question.quizId}`} className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-foreground">
+                            สัปดาห์ {question.week} · {question.lessonTitle}
+                          </div>
+                          <div className="text-sm text-foreground/90 mt-1">{question.question}</div>
+                        </div>
+                        <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                          {questionTypeLabel[question.type] ?? question.type}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3 text-sm">
+                        <div className="rounded-xl border border-border bg-muted/30 p-3">
+                          <div className="text-muted-foreground">ถูก</div>
+                          <div className="text-lg font-bold text-[#22c55e]">{question.correctCount}</div>
+                        </div>
+                        <div className="rounded-xl border border-border bg-muted/30 p-3">
+                          <div className="text-muted-foreground">ผิด</div>
+                          <div className="text-lg font-bold text-destructive">{question.incorrectCount}</div>
+                        </div>
+                        <div className="rounded-xl border border-border bg-muted/30 p-3">
+                          <div className="text-muted-foreground">อัตราถูก</div>
+                          <div className="text-lg font-bold text-foreground">{formatAccuracy(question.accuracy)}</div>
+                        </div>
+                      </div>
+
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-[#22c55e]"
+                          style={{ width: `${Math.min(question.accuracy, 100)}%` }}
+                        />
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        วิเคราะห์จากคำตอบที่ส่งได้ทั้งหมด {question.totalCount} รายการ
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <Lightbulb className="w-4 h-4 text-[#eab308]" />
+                ข้อเสนอแนะสำหรับการสอนซ้ำ
+              </div>
+
+              {weeklyAnalytics.filter((week) => week.submissions > 0).length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  ยังไม่มีข้อมูลพอสำหรับแนะนำการสอนซ้ำ
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {weeklyAnalytics.map((week) => (
+                    <div key={`feedback-${week.week}`} className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-foreground">สัปดาห์ {week.week}</div>
+                          <div className="text-xs text-muted-foreground">{week.title}</div>
+                        </div>
+                        <div className="text-xs rounded-full bg-primary/10 text-primary border border-primary/20 px-3 py-1">
+                          {week.submissions} งานส่ง
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-foreground/90">
+                        {week.recommendation}
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        ประเมิน: {week.assessment} · ความถูกต้อง {formatAccuracy(week.accuracy)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </motion.div>
 
           <motion.div

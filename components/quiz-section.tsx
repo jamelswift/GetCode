@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -31,6 +31,28 @@ export function QuizSection({ quizzes, onComplete, lessonTitle }: QuizSectionPro
   }, [])
 
   const quiz = quizzes[currentQuiz]
+
+  const getShuffledOptions = (quizId: string, options: string[]) => {
+    const seed = quizId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    const seeded = [...options].map((option, originalIndex) => ({ option, originalIndex }))
+
+    for (let index = seeded.length - 1; index > 0; index -= 1) {
+      const swapIndex = (seed + index * 7) % (index + 1)
+      const temp = seeded[index]
+      seeded[index] = seeded[swapIndex]
+      seeded[swapIndex] = temp
+    }
+
+    return seeded
+  }
+
+  const displayOptions = useMemo(() => {
+    if (quiz.type !== 'multiple-choice' || !quiz.options) {
+      return []
+    }
+
+    return getShuffledOptions(quiz.id, quiz.options)
+  }, [quiz])
 
   const handleAnswer = (answer: string | number) => {
     setAnswers((prev) => ({ ...prev, [quiz.id]: answer }))
@@ -86,29 +108,29 @@ export function QuizSection({ quizzes, onComplete, lessonTitle }: QuizSectionPro
       case 'multiple-choice':
         return (
           <div className="space-y-3">
-            {quiz.options?.map((option, index) => (
+            {displayOptions.map(({ option, originalIndex }, displayIndex) => (
               <motion.button
-                key={index}
+                key={`${quiz.id}-${originalIndex}`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => handleAnswer(index)}
+                onClick={() => handleAnswer(originalIndex)}
                 disabled={submittedQuizzes.has(quiz.id)}
                 className={`w-full p-4 rounded-xl text-left transition-all ${
-                  answers[quiz.id] === index
+                  answers[quiz.id] === originalIndex
                     ? 'bg-primary text-primary-foreground ring-2 ring-primary'
                     : 'bg-muted hover:bg-muted/80 text-foreground'
                 } ${submittedQuizzes.has(quiz.id) ? 'cursor-not-allowed' : ''} ${
-                  showResult && index === quiz.correctAnswer
+                  showResult && originalIndex === quiz.correctAnswer
                     ? 'bg-[#22c55e] text-white'
                     : ''
                 } ${
-                  showResult && answers[quiz.id] === index && index !== quiz.correctAnswer
+                  showResult && answers[quiz.id] === originalIndex && originalIndex !== quiz.correctAnswer
                     ? 'bg-destructive text-white'
                     : ''
                 }`}
               >
                 <span className="font-medium mr-3">
-                  {String.fromCharCode(65 + index)}.
+                  {String.fromCharCode(65 + displayIndex)}.
                 </span>
                 {option}
               </motion.button>
